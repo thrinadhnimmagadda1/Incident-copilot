@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+chroma_incidents/
+*.log
+.DS_Store
+data/*.json
+!data/incidents.json
