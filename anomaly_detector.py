@@ -3,6 +3,7 @@ import time
 from collections import deque
 from datetime import datetime
 from kafka import KafkaConsumer
+from diagnose import diagnose_anomaly
 
 consumer = KafkaConsumer(
     "service-logs",
@@ -44,9 +45,21 @@ for msg in consumer:
                 "trigger_raw": log["raw"],
                 "warning_count_in_window": len(recent_warnings)
             }
-            anomalies_detected.append(anomaly)
+
             print(f"ANOMALY: {len(recent_warnings)} warnings in {WINDOW_SECONDS}s window")
             print(f"   Trigger: {log['message'][:80]}")
+
+            # NEW — automatically diagnose the moment it's detected
+            diagnosis = diagnose_anomaly({
+                "trigger_message": anomaly["trigger_message"],
+                "trigger_raw": anomaly["trigger_raw"]
+            })
+            anomaly["diagnosis"] = diagnosis.model_dump()
+
+            print(f"   → DIAGNOSIS: {diagnosis.matched_incident_id} ({diagnosis.confidence})")
+            print(f"   → Fix: {diagnosis.suggested_fix}\n")
+
+            anomalies_detected.append(anomaly)
             recent_warnings.clear()
 
 print(f"\n--- Summary ---")
