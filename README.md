@@ -140,21 +140,8 @@ The GitHub Actions workflow runs Ruff and Pytest on pushes and pull requests. Te
 - The development API permits all CORS origins and does not yet include user authentication.
 - The Streamlit dashboard is a demonstration interface, not a multi-tenant operations console.
 
-## Roadmap
 
-- Validate against anonymized real postmortems and production-like log streams
-- Tune the retrieval threshold on a separate validation split and rerun the full LLM evaluation
-- Add hybrid BM25/vector retrieval and reranking
-- Persist incidents and diagnoses in a transactional database
-- Add OpenTelemetry traces and model token/cost reporting
-- Add authentication, authorization, and per-client rate limiting
-- Add a dead-letter topic for malformed messages
-- Integrate PagerDuty, Slack, or Microsoft Teams approval workflows
-- Measure mean time to acknowledge and mean time to resolution in a user study
 
-## Resume-ready summary
-
-> Built a guarded RAG incident-response platform using Kafka, FastAPI, ChromaDB, Sentence Transformers, Groq/Llama, Streamlit, Docker, and RAGAS. The system detects log spikes, retrieves historical incidents, streams evidence-backed root-cause diagnoses, cites source runbooks, and escalates low-confidence cases to human responders. Added automated offline/API tests, CI, Prometheus metrics, configurable retries/timeouts, an 18-incident demo runbook catalog, and a 91-case retrieval benchmark with Recall@K, MRR, precision/recall/F1, latency, and keyword-baseline reporting.
 
 ## Data attribution
 
