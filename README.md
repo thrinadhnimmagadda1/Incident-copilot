@@ -23,6 +23,10 @@ flowchart LR
     J --> L[Prometheus metrics]
 ```
 
+## Dashboard preview
+
+![Incident Copilot Streamlit dashboard](assets/dashboard-screenshot.png)
+
 ## Key engineering decisions
 
 - **Safe failure over forced matching:** a configurable vector-distance threshold rejects weak evidence before the LLM sees retrieved incidents.
