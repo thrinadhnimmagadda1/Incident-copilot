@@ -1,24 +1,24 @@
-import os
 import json
-from datetime import datetime
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+import json as json_module
+import time
+from uuid import uuid4
 
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response, StreamingResponse
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from pydantic import BaseModel, Field
 
-from diagnose import diagnose_anomaly, retrieve_similar_incidents, diagnose_anomaly_stream
-import json as json_module
-from fastapi.responses import StreamingResponse
+from diagnose import diagnose_anomaly, diagnose_anomaly_stream, retrieve_similar_incidents
 
 load_dotenv()
 
 app = FastAPI(
     title="Incident Copilot API",
     description="AI-powered production incident diagnosis using RAG over historical incidents",
-    version="1.0.0"
+    version="1.0.0",
 )
-from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,6 +32,7 @@ class AnomalyRequest(BaseModel):
     trigger_message: str
     trigger_raw: str = ""
 
+
 class DiagnosisResponse(BaseModel):
     matched_incident_id: str | None
     matched_incident_title: str | None
@@ -39,12 +40,34 @@ class DiagnosisResponse(BaseModel):
     likely_root_cause: str
     suggested_fix: str
     reasoning: str
+    sources: list[dict] = Field(default_factory=list)
 
 class IncidentSummary(BaseModel):
     id: str
     title: str
     system: str
     severity: str
+
+
+REQUESTS = Counter("incident_copilot_http_requests_total", "HTTP requests", ["method", "path", "status"])
+LATENCY = Histogram("incident_copilot_http_request_seconds", "HTTP request latency", ["path"])
+
+
+@app.middleware("http")
+async def request_context(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", str(uuid4()))
+    started = time.perf_counter()
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    REQUESTS.labels(request.method, request.url.path, response.status_code).inc()
+    LATENCY.labels(request.url.path).observe(time.perf_counter() - started)
+    return response
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 
 # ── Endpoints ─────────────────────────────────────────────────
 
@@ -58,8 +81,9 @@ def health():
         incidents = json.load(f)
     return {
         "status": "healthy",
-        "incidents_in_knowledge_base": len(incidents)
+        "incidents_in_knowledge_base": len(incidents),
     }
+
 
 @app.post("/diagnose", response_model=DiagnosisResponse)
 def diagnose(request: AnomalyRequest):
@@ -72,7 +96,7 @@ def diagnose(request: AnomalyRequest):
 
     anomaly = {
         "trigger_message": request.trigger_message,
-        "trigger_raw": request.trigger_raw or request.trigger_message
+        "trigger_raw": request.trigger_raw or request.trigger_message,
     }
 
     try:
@@ -81,6 +105,7 @@ def diagnose(request: AnomalyRequest):
         raise HTTPException(status_code=500, detail=f"Diagnosis failed: {str(e)}")
 
     return DiagnosisResponse(**diagnosis.model_dump())
+
 
 @app.get("/incidents", response_model=list[IncidentSummary])
 def list_incidents():
@@ -92,10 +117,11 @@ def list_incidents():
             id=inc["id"],
             title=inc["title"],
             system=inc["system"],
-            severity=inc["severity"]
+            severity=inc["severity"],
         )
         for inc in incidents
     ]
+
 
 @app.get("/incidents/{incident_id}")
 def get_incident(incident_id: str):
@@ -107,20 +133,34 @@ def get_incident(incident_id: str):
             return inc
     raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
 
+
 @app.get("/eval-results")
 def eval_results():
-    """Return the last RAGAS evaluation results."""
+    """Return the last full-LLM/RAGAS evaluation results."""
     try:
         with open("data/eval_results.json") as f:
             return json.load(f)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="No evaluation results found — run evaluate_diagnosis.py first")
 
+
+@app.get("/retrieval-eval-results")
+def retrieval_eval_results():
+    """Return the latest offline retrieval benchmark results."""
+    try:
+        with open("data/retrieval_eval_results.json") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="No retrieval benchmark found — run evaluate_retrieval.py first")
+
+
 @app.get("/similar")
 def similar_incidents(query: str, n: int = 3):
     """Debug endpoint — see raw retrieval results for any query."""
     candidates = retrieve_similar_incidents(query, n=n)
     return {"query": query, "candidates": candidates}
+
+
 @app.post("/diagnose/stream")
 def diagnose_stream(request: AnomalyRequest):
     """
@@ -132,7 +172,7 @@ def diagnose_stream(request: AnomalyRequest):
 
     anomaly = {
         "trigger_message": request.trigger_message,
-        "trigger_raw": request.trigger_raw or request.trigger_message
+        "trigger_raw": request.trigger_raw or request.trigger_message,
     }
 
     def generate():

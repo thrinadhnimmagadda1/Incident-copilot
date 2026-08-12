@@ -1,72 +1,110 @@
+"""Consume logs, detect rate spikes, and request an AI diagnosis."""
+
 import json
+import logging
 import time
 from collections import deque
-from datetime import datetime
-from kafka import KafkaConsumer
-from diagnose import diagnose_anomaly
+from datetime import datetime, timezone
 
-consumer = KafkaConsumer(
-    "service-logs",
-    bootstrap_servers="localhost:9092",
-    auto_offset_reset="earliest",
-    value_deserializer=lambda v: json.loads(v.decode("utf-8")),
-    consumer_timeout_ms=10000
+from kafka import KafkaConsumer
+
+from config import (
+    ANOMALY_COOLDOWN_SECONDS,
+    ANOMALY_SPIKE_THRESHOLD,
+    ANOMALY_WINDOW_SECONDS,
+    KAFKA_BOOTSTRAP_SERVERS,
+    KAFKA_TOPIC,
 )
 
-WINDOW_SECONDS = 5
-SPIKE_THRESHOLD = 5
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger("incident-copilot.detector")
 
-recent_warnings = deque()
 
-def is_anomaly_window():
-    now = time.time()
-    while recent_warnings and now - recent_warnings[0] > WINDOW_SECONDS:
-        recent_warnings.popleft()
-    return len(recent_warnings) >= SPIKE_THRESHOLD
+class SlidingWindowDetector:
+    """Rate-based detector with a cooldown to suppress duplicate incidents."""
 
-print(f"Anomaly detector running — threshold: {SPIKE_THRESHOLD} warnings/{WINDOW_SECONDS}s\n")
+    def __init__(self, window_seconds=5, threshold=5, cooldown_seconds=30):
+        self.window_seconds = window_seconds
+        self.threshold = threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.events = deque()
+        self.last_detection_at = None
 
-anomalies_detected = []
-total = 0
-warn_count = 0
+    def observe(self, timestamp):
+        while self.events and timestamp - self.events[0] > self.window_seconds:
+            self.events.popleft()
+        self.events.append(timestamp)
 
-for msg in consumer:
-    log = msg.value
-    total += 1
+        if len(self.events) < self.threshold:
+            return False
+        if self.last_detection_at is not None:
+            if timestamp - self.last_detection_at < self.cooldown_seconds:
+                return False
 
-    if log["level"] in ("WARN", "ERROR"):
-        warn_count += 1
-        recent_warnings.append(time.time())
+        self.last_detection_at = timestamp
+        self.events.clear()
+        return True
 
-        if is_anomaly_window():
-            anomaly = {
-                "detected_at": datetime.now().isoformat(),
-                "trigger_message": log["message"],
-                "trigger_raw": log["raw"],
-                "warning_count_in_window": len(recent_warnings)
-            }
 
-            print(f"ANOMALY: {len(recent_warnings)} warnings in {WINDOW_SECONDS}s window")
-            print(f"   Trigger: {log['message'][:80]}")
+def create_consumer():
+    return KafkaConsumer(
+        KAFKA_TOPIC,
+        bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+        auto_offset_reset="earliest",
+        group_id="incident-copilot-detector",
+        enable_auto_commit=True,
+        value_deserializer=lambda value: json.loads(value.decode("utf-8")),
+    )
 
-            # NEW — automatically diagnose the moment it's detected
-            diagnosis = diagnose_anomaly({
-                "trigger_message": anomaly["trigger_message"],
-                "trigger_raw": anomaly["trigger_raw"]
-            })
-            anomaly["diagnosis"] = diagnosis.model_dump()
 
-            print(f"   → DIAGNOSIS: {diagnosis.matched_incident_id} ({diagnosis.confidence})")
-            print(f"   → Fix: {diagnosis.suggested_fix}\n")
+def run():
+    # Imported lazily so unit tests do not initialize the embedding model or LLM.
+    from diagnose import diagnose_anomaly
 
-            anomalies_detected.append(anomaly)
-            recent_warnings.clear()
+    detector = SlidingWindowDetector(
+        ANOMALY_WINDOW_SECONDS,
+        ANOMALY_SPIKE_THRESHOLD,
+        ANOMALY_COOLDOWN_SECONDS,
+    )
+    anomalies = []
+    logger.info(
+        "detector_started topic=%s threshold=%s window_seconds=%s",
+        KAFKA_TOPIC,
+        ANOMALY_SPIKE_THRESHOLD,
+        ANOMALY_WINDOW_SECONDS,
+    )
 
-print(f"\n--- Summary ---")
-print(f"Total logs processed: {total}")
-print(f"Total WARN/ERROR logs: {warn_count}")
-print(f"Anomalies detected: {len(anomalies_detected)}")
+    for message in create_consumer():
+        log = message.value
+        if log.get("level") not in {"WARN", "WARNING", "ERROR"}:
+            continue
+        now = time.time()
+        if not detector.observe(now):
+            continue
 
-with open("data/detected_anomalies.json", "w") as f:
-    json.dump(anomalies_detected, f, indent=2)
-print("Saved to data/detected_anomalies.json")
+        anomaly = {
+            "detected_at": datetime.now(timezone.utc).isoformat(),
+            "trigger_message": log.get("message", ""),
+            "trigger_raw": log.get("raw", ""),
+        }
+        try:
+            anomaly["diagnosis"] = diagnose_anomaly(anomaly).model_dump()
+            logger.info(
+                "anomaly_diagnosed incident_id=%s confidence=%s",
+                anomaly["diagnosis"]["matched_incident_id"],
+                anomaly["diagnosis"]["confidence"],
+            )
+        except Exception:
+            logger.exception("diagnosis_failed")
+            anomaly["diagnosis"] = {"confidence": "error"}
+        anomalies.append(anomaly)
+
+        with open("data/detected_anomalies.json", "w") as handle:
+            json.dump(anomalies, handle, indent=2)
+
+
+if __name__ == "__main__":
+    run()

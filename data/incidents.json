@@ -48,7 +48,7 @@
     "title": "Nova API elevated response latency during instance list queries",
     "log_pattern": "GET /v2/*/servers/detail ... time: [3-9].[0-9]+",
     "system": "OpenStack",
-    "symptoms": "GET servers/detail requests that normally take 0.25s start taking 3-9 seconds during peak load.",
+    "symptoms": "GET servers/detail and GET /v2/project/servers/detail requests that normally take 0.25s start taking 3-9 seconds during peak load.",
     "root_cause": "Unindexed join across instances and instance_metadata tables causing a full table scan as tenant instance counts grew.",
     "fix": "Added a composite index on project_id and deleted columns. Query time dropped from 3-9s back to under 0.3s.",
     "severity": "high",
@@ -64,5 +64,137 @@
     "fix": "Cross-referenced YARN logs, confirmed container preemption. No fix needed, documented as expected behavior in the runbook.",
     "severity": "low",
     "resolution_time_minutes": 20
+  },
+  {
+    "id": "INC-007",
+    "title": "Kafka consumer lag spike after partition leader election",
+    "log_pattern": "WARN org.apache.kafka.clients.consumer.internals.ConsumerCoordinator: Offset commit failed",
+    "system": "Kafka",
+    "symptoms": "Consumers report commit failures and lag increases sharply after a broker restart. Processing resumes slowly but offsets remain behind.",
+    "root_cause": "Partition leadership moved during broker maintenance and consumers were rebalancing while the coordinator was unavailable.",
+    "fix": "Paused the deployment, confirmed controller stability, restarted affected consumer group members one at a time, and monitored lag until it returned to baseline.",
+    "severity": "medium",
+    "resolution_time_minutes": 30
+  },
+  {
+    "id": "INC-008",
+    "title": "Kubernetes pod crash loop from missing ConfigMap key",
+    "log_pattern": "Warning BackOff kubelet: Back-off restarting failed container",
+    "system": "Kubernetes",
+    "symptoms": "Deployment rolls out successfully but new pods enter CrashLoopBackOff immediately. Previous ReplicaSet remains healthy and the failed container reports a missing required environment variable.",
+    "root_cause": "A required environment variable was mapped from a ConfigMap key that was not present in the target namespace.",
+    "fix": "Restored the missing ConfigMap key, restarted the deployment, and added a pre-deploy validation check for required keys.",
+    "severity": "high",
+    "resolution_time_minutes": 25
+  },
+  {
+    "id": "INC-009",
+    "title": "PostgreSQL connection pool exhaustion during batch job",
+    "log_pattern": "FATAL: remaining connection slots are reserved for non-replication superuser connections",
+    "system": "PostgreSQL",
+    "symptoms": "API requests intermittently fail with database connection errors while a nightly job is running.",
+    "root_cause": "The batch job opened one connection per worker and bypassed the shared pool, exhausting the database connection limit.",
+    "fix": "Reduced batch worker concurrency, routed the job through PgBouncer, and added pool saturation alerts.",
+    "severity": "high",
+    "resolution_time_minutes": 40
+  },
+  {
+    "id": "INC-010",
+    "title": "Redis eviction storm after cache memory limit reached",
+    "log_pattern": "WARNING overcommit_memory is set to 0; Background save may fail under low memory condition",
+    "system": "Redis",
+    "symptoms": "Cache hit rate drops and API latency rises. Redis reports frequent key evictions and memory pressure.",
+    "root_cause": "A new feature cached large serialized responses without TTLs, pushing Redis past maxmemory and causing aggressive eviction.",
+    "fix": "Added TTLs to the new cache keys, reduced payload size, and increased the maxmemory limit for the shard.",
+    "severity": "medium",
+    "resolution_time_minutes": 35
+  },
+  {
+    "id": "INC-011",
+    "title": "Nginx upstream timeout from saturated application workers",
+    "log_pattern": "upstream timed out (110: Connection timed out) while reading response header from upstream",
+    "system": "Nginx",
+    "symptoms": "Users receive intermittent 504 responses while the load balancer and network remain healthy.",
+    "root_cause": "Application workers were blocked on slow downstream calls, so Nginx timed out waiting for response headers.",
+    "fix": "Rolled back the downstream call fan-out change, raised worker concurrency temporarily, and added timeout budgets.",
+    "severity": "high",
+    "resolution_time_minutes": 50
+  },
+  {
+    "id": "INC-012",
+    "title": "Airflow DAG stuck because scheduler lost database heartbeat",
+    "log_pattern": "ERROR airflow.jobs.scheduler_job: Scheduler heartbeat got an exception",
+    "system": "Airflow",
+    "symptoms": "Scheduled DAGs stop launching while workers are idle. Existing tasks finish but no new task instances are queued.",
+    "root_cause": "The scheduler process lost its metadata database heartbeat after transient database failover.",
+    "fix": "Restarted the scheduler, verified metadata DB connectivity, and added a health check on scheduler heartbeat freshness.",
+    "severity": "medium",
+    "resolution_time_minutes": 20
+  },
+  {
+    "id": "INC-013",
+    "title": "Elasticsearch shard allocation blocked by disk watermark",
+    "log_pattern": "high disk watermark exceeded on one or more nodes",
+    "system": "Elasticsearch",
+    "symptoms": "Index health turns yellow and new replicas remain unassigned after a traffic spike.",
+    "root_cause": "One data node crossed the high disk watermark, so Elasticsearch stopped allocating shards to it.",
+    "fix": "Deleted expired indices, moved a large shard away from the hot node, and lowered index retention for noisy logs.",
+    "severity": "medium",
+    "resolution_time_minutes": 45
+  },
+  {
+    "id": "INC-014",
+    "title": "S3 object ingestion failures from expired IAM session token",
+    "log_pattern": "botocore.exceptions.ClientError: An error occurred (ExpiredToken) when calling the PutObject operation",
+    "system": "AWS S3",
+    "symptoms": "Ingestion workers fail to upload objects after running normally for several hours.",
+    "root_cause": "Workers cached temporary IAM credentials and did not refresh the session token before expiration.",
+    "fix": "Restarted workers to refresh credentials and patched the client factory to renew sessions before token expiry.",
+    "severity": "medium",
+    "resolution_time_minutes": 30
+  },
+  {
+    "id": "INC-015",
+    "title": "Celery task backlog from stuck broker connection",
+    "log_pattern": "consumer: Cannot connect to amqp://guest:**@rabbitmq:5672//: timed out",
+    "system": "Celery",
+    "symptoms": "Task queue depth grows while workers appear alive but do not consume new messages.",
+    "root_cause": "Workers kept stale RabbitMQ connections after broker failover and did not reconnect cleanly.",
+    "fix": "Restarted affected workers, enabled broker heartbeat checks, and reduced connection retry backoff.",
+    "severity": "medium",
+    "resolution_time_minutes": 25
+  },
+  {
+    "id": "INC-016",
+    "title": "Prometheus scrape failures after service port rename",
+    "log_pattern": "server returned HTTP status 404 Not Found for /metrics",
+    "system": "Prometheus",
+    "symptoms": "Dashboards show missing metrics for a service after a deployment, but the service itself is serving traffic.",
+    "root_cause": "The Kubernetes Service port name changed and the ServiceMonitor continued scraping the old metrics endpoint.",
+    "fix": "Updated the ServiceMonitor selector and added a deployment check that validates the metrics endpoint.",
+    "severity": "low",
+    "resolution_time_minutes": 15
+  },
+  {
+    "id": "INC-017",
+    "title": "DNS resolution failures from stale CoreDNS cache",
+    "log_pattern": "plugin/errors: 2 service.default.svc.cluster.local. A: read udp i/o timeout",
+    "system": "CoreDNS",
+    "symptoms": "Pods intermittently fail to resolve internal service names even though endpoints are healthy.",
+    "root_cause": "CoreDNS pods kept stale upstream resolver state after a node network interruption.",
+    "fix": "Restarted CoreDNS pods, verified upstream resolver reachability, and lowered cache TTL for internal service lookups.",
+    "severity": "high",
+    "resolution_time_minutes": 20
+  },
+  {
+    "id": "INC-018",
+    "title": "GitHub Actions workflow failures from exhausted runner disk",
+    "log_pattern": "No space left on device",
+    "system": "GitHub Actions",
+    "symptoms": "CI jobs fail during dependency installation and Docker layer extraction. Retrying on the same runner fails again.",
+    "root_cause": "Build artifacts and Docker layers from earlier jobs filled the ephemeral runner disk.",
+    "fix": "Added cleanup steps before Docker builds, pruned unused layers, and reduced cached artifact size.",
+    "severity": "low",
+    "resolution_time_minutes": 10
   }
 ]

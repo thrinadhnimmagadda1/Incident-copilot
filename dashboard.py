@@ -1,14 +1,15 @@
-import streamlit as st
-import requests
 import json
+
+import requests
+import streamlit as st
+
+from config import API_URL
 
 st.set_page_config(
     page_title="Incident Copilot",
     page_icon="🚨",
     layout="wide"
 )
-
-API_URL = "http://127.0.0.1:8000"
 
 st.title("🚨 Incident Copilot")
 st.caption("AI-powered production incident diagnosis using RAG over historical incidents")
@@ -17,7 +18,7 @@ st.caption("AI-powered production incident diagnosis using RAG over historical i
 with st.sidebar:
     st.header("Knowledge Base")
     try:
-        health = requests.get(f"{API_URL}/health").json()
+        health = requests.get(f"{API_URL}/health", timeout=5).json()
         st.metric("Incidents on record", health["incidents_in_knowledge_base"])
     except Exception:
         st.error("API not reachable — is Docker running?")
@@ -25,7 +26,7 @@ with st.sidebar:
     st.divider()
     st.subheader("All Incidents")
     try:
-        incidents = requests.get(f"{API_URL}/incidents").json()
+        incidents = requests.get(f"{API_URL}/incidents", timeout=5).json()
         for inc in incidents:
             severity_color = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(inc["severity"], "⚪")
             st.markdown(f"{severity_color} **{inc['id']}** — {inc['title']}")
@@ -70,7 +71,8 @@ if diagnose_clicked and trigger_message.strip():
             response = requests.post(
                 f"{API_URL}/diagnose/stream",
                 json={"trigger_message": trigger_message, "trigger_raw": trigger_message},
-                stream=True
+                stream=True,
+                timeout=60,
             )
 
             final_diagnosis = None
@@ -116,6 +118,14 @@ if diagnose_clicked and trigger_message.strip():
                     with st.expander("Full reasoning"):
                         st.write(final_diagnosis["reasoning"])
 
+                    sources = final_diagnosis.get("sources") or []
+                    if sources:
+                        st.markdown("**Evidence sources:**")
+                        for source in sources:
+                            st.caption(
+                                f"{source['incident_id']} - {source['title']} ({source['source']})"
+                            )
+
                     if confidence == "no_match":
                         st.warning("⚠️ No confident match — escalate to human on-call engineer.")
 
@@ -127,9 +137,25 @@ elif diagnose_clicked:
 
 # ── Footer: Evaluation results ──────────────────────────────────
 st.divider()
-st.subheader("System Evaluation (RAGAS)")
+st.subheader("Offline Retrieval Benchmark")
 try:
-    eval_results = requests.get(f"{API_URL}/eval-results").json()
+    retrieval_results = requests.get(f"{API_URL}/retrieval-eval-results", timeout=5).json()
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Benchmark Cases", retrieval_results["benchmark_cases"])
+    c2.metric("Recall@1", f"{retrieval_results['retrieval_recall_at_1']:.0%}")
+    c3.metric("Match F1", f"{retrieval_results['match_f1']:.1%}")
+    c4.metric("False Positive Rate", f"{retrieval_results['false_positive_rate']:.1%}")
+
+    c5, c6, c7 = st.columns(3)
+    c5.metric("Match Precision", f"{retrieval_results['match_precision']:.1%}")
+    c6.metric("Match Recall", f"{retrieval_results['match_recall']:.1%}")
+    c7.metric("Warm P95 Retrieval", f"{retrieval_results['warm_p95_retrieval_latency_ms']:.0f} ms")
+except Exception:
+    st.info("No retrieval benchmark found — run evaluate_retrieval.py to generate it.")
+
+st.subheader("Saved Full-LLM Evaluation (RAGAS)")
+try:
+    eval_results = requests.get(f"{API_URL}/eval-results", timeout=5).json()
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Overall Accuracy", f"{eval_results['overall_accuracy']:.0%}")
     c2.metric("Refusal Accuracy", f"{eval_results['refusal_accuracy']:.0%}")

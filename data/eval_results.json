@@ -1,0 +1,7 @@
+{
+  "overall_accuracy": 1.0,
+  "refusal_accuracy": 1.0,
+  "faithfulness": 0.5277777777777778,
+  "answer_relevancy": 0.3041123849488044,
+  "test_case_count": 5
+}

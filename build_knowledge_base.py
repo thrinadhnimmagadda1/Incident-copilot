@@ -1,13 +1,16 @@
 import json
+
 import chromadb
 from sentence_transformers import SentenceTransformer
+
+from config import CHROMA_PATH
 
 # Load incidents
 with open("data/incidents.json") as f:
     incidents = json.load(f)
 
 # Setup ChromaDB
-client = chromadb.PersistentClient(path="./chroma_incidents")
+client = chromadb.PersistentClient(path=CHROMA_PATH)
 collection = client.get_or_create_collection("incident_history")
 
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -27,15 +30,18 @@ Log pattern: {inc['log_pattern']}
 Root cause: {inc['root_cause']}
 """
     documents.append(searchable_text)
-    metadatas.append({
-        "id": inc["id"],
-        "title": inc["title"],
-        "system": inc["system"],
-        "root_cause": inc["root_cause"],
-        "fix": inc["fix"],
-        "severity": inc["severity"],
-        "resolution_time_minutes": inc["resolution_time_minutes"]
-    })
+    metadatas.append(
+        {
+            "id": inc["id"],
+            "title": inc["title"],
+            "system": inc["system"],
+            "root_cause": inc["root_cause"],
+            "fix": inc["fix"],
+            "severity": inc["severity"],
+            "resolution_time_minutes": inc["resolution_time_minutes"],
+            "source": inc.get("source", "data/incidents.json"),
+        }
+    )
     ids.append(inc["id"])
 
 embeddings = embedding_model.encode(documents).tolist()

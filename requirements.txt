@@ -6,3 +6,13 @@ sentence-transformers
 python-dotenv
 pydantic
 kafka-python
+streamlit
+requests
+ragas
+datasets
+langchain-groq
+langchain-community
+prometheus-client
+pytest
+httpx
+ruff

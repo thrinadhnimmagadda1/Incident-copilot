@@ -1,0 +1,42 @@
+{
+  "benchmark_cases": 91,
+  "positive_cases": 72,
+  "novel_cases": 19,
+  "retrieval_recall_at_1": 1.0,
+  "retrieval_recall_at_3": 1.0,
+  "mean_reciprocal_rank": 1.0,
+  "keyword_baseline_accuracy": 1.0,
+  "distance_threshold": 1.2,
+  "threshold_classification_accuracy": 0.978021978021978,
+  "match_precision": 1.0,
+  "match_recall": 0.9722222222222222,
+  "match_f1": 0.9859154929577464,
+  "false_positive_rate": 0.0,
+  "confusion_matrix": {
+    "true_positive": 70,
+    "false_positive": 0,
+    "true_negative": 19,
+    "false_negative": 2
+  },
+  "cold_start_latency_ms": 1750.846790993819,
+  "warm_mean_retrieval_latency_ms": 19.989086833165985,
+  "warm_p95_retrieval_latency_ms": 126.95995799731463,
+  "per_domain_recall_at_1": {
+    "HDFS": 1.0,
+    "OpenStack": 1.0,
+    "Linux": 1.0,
+    "Spark": 1.0,
+    "Kafka": 1.0,
+    "Kubernetes": 1.0,
+    "PostgreSQL": 1.0,
+    "Redis": 1.0,
+    "Nginx": 1.0,
+    "Airflow": 1.0,
+    "Elasticsearch": 1.0,
+    "AWS S3": 1.0,
+    "Celery": 1.0,
+    "Prometheus": 1.0,
+    "CoreDNS": 1.0,
+    "GitHub Actions": 1.0
+  }
+}

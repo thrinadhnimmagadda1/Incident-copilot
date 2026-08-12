@@ -13,7 +13,10 @@ for fname in files:
     for line in lines[:3]:
         print(" ", line.strip())
 
-    errors = [l for l in lines if "ERROR" in l or "WARN" in l or "Exception" in l or "FAILED" in l]
+    errors = [
+        line for line in lines
+        if "ERROR" in line or "WARN" in line or "Exception" in line or "FAILED" in line
+    ]
     print(f"Error/warning lines found: {len(errors)}")
     for line in errors[:3]:
         print("  >>", line.strip())

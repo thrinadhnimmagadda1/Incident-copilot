@@ -1,0 +1,548 @@
+[
+  {
+    "trigger": "DataNode got exception while serving block to peer node",
+    "expected_incident": "INC-001",
+    "domain": "HDFS",
+    "ground_truth": "The anomaly should retrieve and match INC-001."
+  },
+  {
+    "trigger": "dfs.DataNode DataXceiver exception serving blk_883 to 10.2.1.9",
+    "expected_incident": "INC-001",
+    "domain": "HDFS",
+    "ground_truth": "The anomaly should retrieve and match INC-001."
+  },
+  {
+    "trigger": "HDFS peer transfer socket timed out while sending replicated block",
+    "expected_incident": "INC-001",
+    "domain": "HDFS",
+    "ground_truth": "The anomaly should retrieve and match INC-001."
+  },
+  {
+    "trigger": "Multiple DataNodes failed while serving blocks during replication",
+    "expected_incident": "INC-001",
+    "domain": "HDFS",
+    "ground_truth": "The anomaly should retrieve and match INC-001."
+  },
+  {
+    "trigger": "Block transfer to receiving DataNode stalled and write timed out",
+    "expected_incident": "INC-001",
+    "domain": "HDFS",
+    "ground_truth": "The anomaly should retrieve and match INC-001."
+  },
+  {
+    "trigger": "WARN DataXceiver Got exception while serving blk_1024",
+    "expected_incident": "INC-001",
+    "domain": "HDFS",
+    "ground_truth": "The anomaly should retrieve and match INC-001."
+  },
+  {
+    "trigger": "nova imagecache reports Unknown base file repeatedly",
+    "expected_incident": "INC-002",
+    "domain": "OpenStack",
+    "ground_truth": "The anomaly should retrieve and match INC-002."
+  },
+  {
+    "trigger": "Unknown base file under /var/lib/nova/instances/_base",
+    "expected_incident": "INC-002",
+    "domain": "OpenStack",
+    "ground_truth": "The anomaly should retrieve and match INC-002."
+  },
+  {
+    "trigger": "Nova compute image cache manager cannot find tracked base image",
+    "expected_incident": "INC-002",
+    "domain": "OpenStack",
+    "ground_truth": "The anomaly should retrieve and match INC-002."
+  },
+  {
+    "trigger": "Missing cached base image warning repeats every forty seconds",
+    "expected_incident": "INC-002",
+    "domain": "OpenStack",
+    "ground_truth": "The anomaly should retrieve and match INC-002."
+  },
+  {
+    "trigger": "libvirt imagecache stale tracking entry references deleted base",
+    "expected_incident": "INC-002",
+    "domain": "OpenStack",
+    "ground_truth": "The anomaly should retrieve and match INC-002."
+  },
+  {
+    "trigger": "WARNING nova.virt.libvirt.imagecache Unknown base file hash",
+    "expected_incident": "INC-002",
+    "domain": "OpenStack",
+    "ground_truth": "The anomaly should retrieve and match INC-002."
+  },
+  {
+    "trigger": "Repeated SSH authentication failures from one external IP",
+    "expected_incident": "INC-003",
+    "domain": "Linux",
+    "ground_truth": "The anomaly should retrieve and match INC-003."
+  },
+  {
+    "trigger": "sshd authentication failure targeting root many times",
+    "expected_incident": "INC-003",
+    "domain": "Linux",
+    "ground_truth": "The anomaly should retrieve and match INC-003."
+  },
+  {
+    "trigger": "Possible SSH brute force scan with dozens of failed logins",
+    "expected_incident": "INC-003",
+    "domain": "Linux",
+    "ground_truth": "The anomaly should retrieve and match INC-003."
+  },
+  {
+    "trigger": "Linux host reports repeated failed SSH attempts for common users",
+    "expected_incident": "INC-003",
+    "domain": "Linux",
+    "ground_truth": "The anomaly should retrieve and match INC-003."
+  },
+  {
+    "trigger": "PAM authentication failures from a single remote address",
+    "expected_incident": "INC-003",
+    "domain": "Linux",
+    "ground_truth": "The anomaly should retrieve and match INC-003."
+  },
+  {
+    "trigger": "authentication failure logname uid=0 tty=NODEVssh rhost=203.0.113.8",
+    "expected_incident": "INC-003",
+    "domain": "Linux",
+    "ground_truth": "The anomaly should retrieve and match INC-003."
+  },
+  {
+    "trigger": "NameSystem chooseTarget not able to place enough replicas",
+    "expected_incident": "INC-004",
+    "domain": "HDFS",
+    "ground_truth": "The anomaly should retrieve and match INC-004."
+  },
+  {
+    "trigger": "HDFS reports under replicated blocks after DataNode restart",
+    "expected_incident": "INC-004",
+    "domain": "HDFS",
+    "ground_truth": "The anomaly should retrieve and match INC-004."
+  },
+  {
+    "trigger": "NameNode cannot satisfy replication factor during maintenance",
+    "expected_incident": "INC-004",
+    "domain": "HDFS",
+    "ground_truth": "The anomaly should retrieve and match INC-004."
+  },
+  {
+    "trigger": "Several DataNodes restarted together and block replicas are under count",
+    "expected_incident": "INC-004",
+    "domain": "HDFS",
+    "ground_truth": "The anomaly should retrieve and match INC-004."
+  },
+  {
+    "trigger": "BLOCK chooseTarget failed to place sufficient replicas",
+    "expected_incident": "INC-004",
+    "domain": "HDFS",
+    "ground_truth": "The anomaly should retrieve and match INC-004."
+  },
+  {
+    "trigger": "Replication monitor behind after batch DataNode restart",
+    "expected_incident": "INC-004",
+    "domain": "HDFS",
+    "ground_truth": "The anomaly should retrieve and match INC-004."
+  },
+  {
+    "trigger": "Nova GET servers detail request took 7.8 seconds",
+    "expected_incident": "INC-005",
+    "domain": "OpenStack",
+    "ground_truth": "The anomaly should retrieve and match INC-005."
+  },
+  {
+    "trigger": "OpenStack instance list API latency increased during peak load",
+    "expected_incident": "INC-005",
+    "domain": "OpenStack",
+    "ground_truth": "The anomaly should retrieve and match INC-005."
+  },
+  {
+    "trigger": "GET /v2/project/servers/detail status 200 time 5.4",
+    "expected_incident": "INC-005",
+    "domain": "OpenStack",
+    "ground_truth": "The anomaly should retrieve and match INC-005."
+  },
+  {
+    "trigger": "Nova API slow query listing tenant instances",
+    "expected_incident": "INC-005",
+    "domain": "OpenStack",
+    "ground_truth": "The anomaly should retrieve and match INC-005."
+  },
+  {
+    "trigger": "Instance detail endpoint latency rose from milliseconds to seconds",
+    "expected_incident": "INC-005",
+    "domain": "OpenStack",
+    "ground_truth": "The anomaly should retrieve and match INC-005."
+  },
+  {
+    "trigger": "OpenStack servers detail query performs slowly for large tenant",
+    "expected_incident": "INC-005",
+    "domain": "OpenStack",
+    "ground_truth": "The anomaly should retrieve and match INC-005."
+  },
+  {
+    "trigger": "Spark executor silently restarted with fresh signal handler log",
+    "expected_incident": "INC-006",
+    "domain": "Spark",
+    "ground_truth": "The anomaly should retrieve and match INC-006."
+  },
+  {
+    "trigger": "CoarseGrainedExecutorBackend registered signal handlers again mid job",
+    "expected_incident": "INC-006",
+    "domain": "Spark",
+    "ground_truth": "The anomaly should retrieve and match INC-006."
+  },
+  {
+    "trigger": "YARN executor container disappeared and restarted without application error",
+    "expected_incident": "INC-006",
+    "domain": "Spark",
+    "ground_truth": "The anomaly should retrieve and match INC-006."
+  },
+  {
+    "trigger": "Spark job sees new executor startup but no preceding exception",
+    "expected_incident": "INC-006",
+    "domain": "Spark",
+    "ground_truth": "The anomaly should retrieve and match INC-006."
+  },
+  {
+    "trigger": "Executor was preempted by higher priority YARN queue",
+    "expected_incident": "INC-006",
+    "domain": "Spark",
+    "ground_truth": "The anomaly should retrieve and match INC-006."
+  },
+  {
+    "trigger": "INFO executor registered signal handlers after silent restart",
+    "expected_incident": "INC-006",
+    "domain": "Spark",
+    "ground_truth": "The anomaly should retrieve and match INC-006."
+  },
+  {
+    "trigger": "Kafka consumer lag increased after broker restart and leader election",
+    "expected_incident": "INC-007",
+    "domain": "Kafka",
+    "ground_truth": "The anomaly should retrieve and match INC-007."
+  },
+  {
+    "trigger": "Offset commit failed while consumer coordinator was unavailable",
+    "expected_incident": "INC-007",
+    "domain": "Kafka",
+    "ground_truth": "The anomaly should retrieve and match INC-007."
+  },
+  {
+    "trigger": "Consumer group rebalanced and lag spiked after partition leadership moved",
+    "expected_incident": "INC-007",
+    "domain": "Kafka",
+    "ground_truth": "The anomaly should retrieve and match INC-007."
+  },
+  {
+    "trigger": "Kubernetes pods entered CrashLoopBackOff because ConfigMap key was missing",
+    "expected_incident": "INC-008",
+    "domain": "Kubernetes",
+    "ground_truth": "The anomaly should retrieve and match INC-008."
+  },
+  {
+    "trigger": "Back-off restarting failed container after deployment rollout",
+    "expected_incident": "INC-008",
+    "domain": "Kubernetes",
+    "ground_truth": "The anomaly should retrieve and match INC-008."
+  },
+  {
+    "trigger": "Required environment variable from ConfigMap was absent in namespace",
+    "expected_incident": "INC-008",
+    "domain": "Kubernetes",
+    "ground_truth": "The anomaly should retrieve and match INC-008."
+  },
+  {
+    "trigger": "PostgreSQL reports remaining connection slots are reserved during nightly job",
+    "expected_incident": "INC-009",
+    "domain": "PostgreSQL",
+    "ground_truth": "The anomaly should retrieve and match INC-009."
+  },
+  {
+    "trigger": "API cannot get DB connections while batch workers are running",
+    "expected_incident": "INC-009",
+    "domain": "PostgreSQL",
+    "ground_truth": "The anomaly should retrieve and match INC-009."
+  },
+  {
+    "trigger": "PgBouncer pool saturated because job opened too many database connections",
+    "expected_incident": "INC-009",
+    "domain": "PostgreSQL",
+    "ground_truth": "The anomaly should retrieve and match INC-009."
+  },
+  {
+    "trigger": "Redis cache started evicting keys after memory limit was reached",
+    "expected_incident": "INC-010",
+    "domain": "Redis",
+    "ground_truth": "The anomaly should retrieve and match INC-010."
+  },
+  {
+    "trigger": "Cache hit rate dropped and Redis maxmemory eviction increased",
+    "expected_incident": "INC-010",
+    "domain": "Redis",
+    "ground_truth": "The anomaly should retrieve and match INC-010."
+  },
+  {
+    "trigger": "Large cached responses without TTL caused Redis memory pressure",
+    "expected_incident": "INC-010",
+    "domain": "Redis",
+    "ground_truth": "The anomaly should retrieve and match INC-010."
+  },
+  {
+    "trigger": "Nginx upstream timed out while reading response header",
+    "expected_incident": "INC-011",
+    "domain": "Nginx",
+    "ground_truth": "The anomaly should retrieve and match INC-011."
+  },
+  {
+    "trigger": "Users see 504 gateway timeout because application workers are saturated",
+    "expected_incident": "INC-011",
+    "domain": "Nginx",
+    "ground_truth": "The anomaly should retrieve and match INC-011."
+  },
+  {
+    "trigger": "Application blocked on downstream calls and Nginx timed out",
+    "expected_incident": "INC-011",
+    "domain": "Nginx",
+    "ground_truth": "The anomaly should retrieve and match INC-011."
+  },
+  {
+    "trigger": "Airflow scheduler heartbeat exception stopped DAG scheduling",
+    "expected_incident": "INC-012",
+    "domain": "Airflow",
+    "ground_truth": "The anomaly should retrieve and match INC-012."
+  },
+  {
+    "trigger": "DAGs are not queued after metadata database failover",
+    "expected_incident": "INC-012",
+    "domain": "Airflow",
+    "ground_truth": "The anomaly should retrieve and match INC-012."
+  },
+  {
+    "trigger": "Airflow scheduler lost database heartbeat and tasks stopped launching",
+    "expected_incident": "INC-012",
+    "domain": "Airflow",
+    "ground_truth": "The anomaly should retrieve and match INC-012."
+  },
+  {
+    "trigger": "Elasticsearch high disk watermark exceeded and replicas are unassigned",
+    "expected_incident": "INC-013",
+    "domain": "Elasticsearch",
+    "ground_truth": "The anomaly should retrieve and match INC-013."
+  },
+  {
+    "trigger": "Index health yellow because shard allocation is blocked by disk usage",
+    "expected_incident": "INC-013",
+    "domain": "Elasticsearch",
+    "ground_truth": "The anomaly should retrieve and match INC-013."
+  },
+  {
+    "trigger": "Data node crossed disk watermark after log traffic spike",
+    "expected_incident": "INC-013",
+    "domain": "Elasticsearch",
+    "ground_truth": "The anomaly should retrieve and match INC-013."
+  },
+  {
+    "trigger": "S3 PutObject failed with ExpiredToken after workers ran for hours",
+    "expected_incident": "INC-014",
+    "domain": "AWS S3",
+    "ground_truth": "The anomaly should retrieve and match INC-014."
+  },
+  {
+    "trigger": "Ingestion workers cached temporary IAM credentials too long",
+    "expected_incident": "INC-014",
+    "domain": "AWS S3",
+    "ground_truth": "The anomaly should retrieve and match INC-014."
+  },
+  {
+    "trigger": "AWS upload failed because session token expired",
+    "expected_incident": "INC-014",
+    "domain": "AWS S3",
+    "ground_truth": "The anomaly should retrieve and match INC-014."
+  },
+  {
+    "trigger": "Celery workers cannot connect to RabbitMQ and queue backlog grows",
+    "expected_incident": "INC-015",
+    "domain": "Celery",
+    "ground_truth": "The anomaly should retrieve and match INC-015."
+  },
+  {
+    "trigger": "Task queue depth increases while workers keep stale broker connections",
+    "expected_incident": "INC-015",
+    "domain": "Celery",
+    "ground_truth": "The anomaly should retrieve and match INC-015."
+  },
+  {
+    "trigger": "RabbitMQ broker failover left Celery consumers disconnected",
+    "expected_incident": "INC-015",
+    "domain": "Celery",
+    "ground_truth": "The anomaly should retrieve and match INC-015."
+  },
+  {
+    "trigger": "Prometheus scrape returns 404 for metrics after service port rename",
+    "expected_incident": "INC-016",
+    "domain": "Prometheus",
+    "ground_truth": "The anomaly should retrieve and match INC-016."
+  },
+  {
+    "trigger": "Dashboards miss service metrics because ServiceMonitor scraped old endpoint",
+    "expected_incident": "INC-016",
+    "domain": "Prometheus",
+    "ground_truth": "The anomaly should retrieve and match INC-016."
+  },
+  {
+    "trigger": "Kubernetes ServiceMonitor selector no longer matches metrics endpoint",
+    "expected_incident": "INC-016",
+    "domain": "Prometheus",
+    "ground_truth": "The anomaly should retrieve and match INC-016."
+  },
+  {
+    "trigger": "CoreDNS plugin errors show UDP timeout resolving service name",
+    "expected_incident": "INC-017",
+    "domain": "CoreDNS",
+    "ground_truth": "The anomaly should retrieve and match INC-017."
+  },
+  {
+    "trigger": "Pods intermittently cannot resolve internal service DNS",
+    "expected_incident": "INC-017",
+    "domain": "CoreDNS",
+    "ground_truth": "The anomaly should retrieve and match INC-017."
+  },
+  {
+    "trigger": "Stale CoreDNS upstream resolver state after node network interruption",
+    "expected_incident": "INC-017",
+    "domain": "CoreDNS",
+    "ground_truth": "The anomaly should retrieve and match INC-017."
+  },
+  {
+    "trigger": "GitHub Actions job failed with no space left on device",
+    "expected_incident": "INC-018",
+    "domain": "GitHub Actions",
+    "ground_truth": "The anomaly should retrieve and match INC-018."
+  },
+  {
+    "trigger": "CI runner disk filled during Docker layer extraction",
+    "expected_incident": "INC-018",
+    "domain": "GitHub Actions",
+    "ground_truth": "The anomaly should retrieve and match INC-018."
+  },
+  {
+    "trigger": "Dependency install failed because ephemeral runner storage was exhausted",
+    "expected_incident": "INC-018",
+    "domain": "GitHub Actions",
+    "ground_truth": "The anomaly should retrieve and match INC-018."
+  },
+  {
+    "trigger": "Payment gateway returned HTTP 503 during checkout",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "React build cannot resolve components Header module",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "iOS application crashed while opening the camera",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Customer password reset email was not delivered",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Android checkout button is hidden below the keyboard",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "DNS provider failed to resolve the public marketing domain",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Fraud model feature pipeline produced null scores",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Salesforce webhook signature validation failed",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Browser CORS policy blocked an analytics request",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Stripe webhook replay protection rejected a duplicate event",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Figma design export lost component constraints",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Mobile push notifications delayed by APNs feedback service",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Warehouse ETL produced duplicate customer rows",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "CRM lead assignment rule routed all leads to one owner",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Third party geocoding API returned invalid coordinates",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Feature flag targeted the wrong beta cohort",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "PDF invoice renderer clipped the final table row",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Search autocomplete returns stale product names",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  },
+  {
+    "trigger": "Email unsubscribe link produced a 410 response",
+    "expected_incident": null,
+    "domain": "novel",
+    "ground_truth": "No matching incident exists; the system should escalate."
+  }
+]

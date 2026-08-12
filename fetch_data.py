@@ -1,5 +1,6 @@
-import requests
 import os
+
+import requests
 
 os.makedirs("data", exist_ok=True)
 

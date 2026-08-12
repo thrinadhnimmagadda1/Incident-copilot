@@ -1,0 +1,15 @@
+.git
+.venv
+__pycache__
+.pytest_cache
+.ruff_cache
+chroma_incidents
+*.pyc
+*.log
+.env
+.DS_Store
+data/*.json
+!data/incidents.json
+!data/eval_set.json
+!data/eval_results.json
+!data/retrieval_eval_results.json

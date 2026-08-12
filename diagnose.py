@@ -1,55 +1,87 @@
 import json
 import os
-from datetime import datetime
-from dotenv import load_dotenv
-import chromadb
-from sentence_transformers import SentenceTransformer
-from groq import Groq
-from pydantic import BaseModel
 from typing import Optional
+
+import chromadb
+from dotenv import load_dotenv
+from groq import Groq
+from pydantic import BaseModel, Field
+from sentence_transformers import SentenceTransformer
+
+from config import (
+    CHROMA_PATH,
+    DISTANCE_THRESHOLD,
+    GROQ_MODEL,
+    LLM_MAX_RETRIES,
+    LLM_TIMEOUT_SECONDS,
+    RETRIEVAL_TOP_K,
+)
 
 load_dotenv()
 
-# Setup
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-chroma_client = chromadb.PersistentClient(path="./chroma_incidents")
-collection = chroma_client.get_or_create_collection("incident_history")
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+# Heavy resources are initialized lazily so API startup and unit tests stay fast.
+groq_client = None
+collection = None
+embedding_model = None
+
+
+def get_groq_client():
+    global groq_client
+    if groq_client is None:
+        groq_client = Groq(
+            api_key=os.getenv("GROQ_API_KEY"),
+            timeout=LLM_TIMEOUT_SECONDS,
+            max_retries=LLM_MAX_RETRIES,
+        )
+    return groq_client
+
+
+def get_retrieval_resources():
+    global collection, embedding_model
+    if collection is None:
+        client = chromadb.PersistentClient(path=CHROMA_PATH)
+        collection = client.get_or_create_collection("incident_history")
+    if embedding_model is None:
+        embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+    return collection, embedding_model
+
 
 # Structured output schema — this is what every diagnosis returns
 class IncidentDiagnosis(BaseModel):
     matched_incident_id: Optional[str]
     matched_incident_title: Optional[str]
-    confidence: str          # "high", "medium", "low", "no_match"
+    confidence: str  # "high", "medium", "low", "no_match"
     likely_root_cause: str
     suggested_fix: str
     reasoning: str
+    sources: list[dict] = Field(default_factory=list)
+
 
 # ── Step 1: Retrieve similar past incidents ───────────────────
-def retrieve_similar_incidents(trigger_message: str, n: int = 3):
-    query_embedding = embedding_model.encode([trigger_message]).tolist()
-    results = collection.query(
-        query_embeddings=query_embedding,
-        n_results=n
+def retrieve_similar_incidents(trigger_message: str, n: int = RETRIEVAL_TOP_K):
+    incident_collection, model = get_retrieval_resources()
+    query_embedding = model.encode([trigger_message]).tolist()
+    results = incident_collection.query(
+        query_embeddings=query_embedding, n_results=n
     )
 
     matches = []
     for i in range(len(results["ids"][0])):
-        matches.append({
-            "id": results["metadatas"][0][i]["id"],
-            "title": results["metadatas"][0][i]["title"],
-            "root_cause": results["metadatas"][0][i]["root_cause"],
-            "fix": results["metadatas"][0][i]["fix"],
-            "severity": results["metadatas"][0][i]["severity"],
-            "distance": results["distances"][0][i]  # lower = more similar
-        })
+        matches.append(
+            {
+                "id": results["metadatas"][0][i]["id"],
+                "title": results["metadatas"][0][i]["title"],
+                "root_cause": results["metadatas"][0][i]["root_cause"],
+                "fix": results["metadatas"][0][i]["fix"],
+                "severity": results["metadatas"][0][i]["severity"],
+                "distance": results["distances"][0][i],  # lower = more similar
+                "source": results["metadatas"][0][i].get("source", "data/incidents.json"),
+            }
+        )
     return matches
 
-# ── Step 2: Agent correlates and diagnoses ────────────────────
-DISTANCE_THRESHOLD = 1.5  # empirically set: real matches scored
-                          # 1.31-1.35, unrelated payment anomaly
-                          # scored 1.65 — threshold sits between them
 
+# ── Step 2: Agent correlates and diagnoses ────────────────────
 def diagnose_anomaly(anomaly: dict) -> IncidentDiagnosis:
     trigger = anomaly["trigger_message"]
     raw_log = anomaly["trigger_raw"]
@@ -68,7 +100,8 @@ def diagnose_anomaly(anomaly: dict) -> IncidentDiagnosis:
             confidence="no_match",
             likely_root_cause="No similar historical incident found in knowledge base",
             suggested_fix="Escalate to human on-call engineer — novel issue not covered by existing runbooks",
-            reasoning=f"Best candidate distance ({best_distance:.3f}) exceeds threshold ({DISTANCE_THRESHOLD}). Refusing to force a match to avoid misdiagnosis."
+            reasoning=f"Best candidate distance ({best_distance:.3f}) exceeds threshold ({DISTANCE_THRESHOLD}). Refusing to force a match to avoid misdiagnosis.",
+            sources=[],
         )
 
     # Build context for the LLM
@@ -112,13 +145,14 @@ Respond ONLY with valid JSON in this exact format:
   "confidence": "high or medium or low or no_match",
   "likely_root_cause": "your explanation",
   "suggested_fix": "your recommendation",
-  "reasoning": "why you matched or didn't match this incident"
+  "reasoning": "why you matched or didn't match this incident",
+  "sources": [{{"incident_id": "INC-XXX", "title": "source incident title", "source": "source path"}}]
 }}"""
 
-    response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+    response = get_groq_client().chat.completions.create(
+        model=GROQ_MODEL,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0
+        temperature=0,
     )
 
     raw_text = response.choices[0].message.content.strip()
@@ -127,9 +161,23 @@ Respond ONLY with valid JSON in this exact format:
     try:
         start = raw_text.find("{")
         end = raw_text.rfind("}")
-        json_str = raw_text[start:end+1]
+        json_str = raw_text[start : end + 1]
         parsed = json.loads(json_str)
-        return IncidentDiagnosis(**parsed)
+        diagnosis = IncidentDiagnosis(**parsed)
+        if diagnosis.matched_incident_id:
+            matched = next(
+                (candidate for candidate in candidates if candidate["id"] == diagnosis.matched_incident_id),
+                None,
+            )
+            if matched:
+                diagnosis.sources = [
+                    {
+                        "incident_id": matched["id"],
+                        "title": matched["title"],
+                        "source": matched["source"],
+                    }
+                ]
+        return diagnosis
     except Exception as e:
         return IncidentDiagnosis(
             matched_incident_id=None,
@@ -137,7 +185,7 @@ Respond ONLY with valid JSON in this exact format:
             confidence="no_match",
             likely_root_cause="Failed to parse diagnosis",
             suggested_fix="Manual review needed",
-            reasoning=f"Parse error: {str(e)}"
+            reasoning=f"Parse error: {str(e)}",
         )
 
 # ── Run on all detected anomalies from Day 2 ──────────────────
@@ -160,15 +208,13 @@ if __name__ == "__main__":
         print(f"Fix: {diagnosis.suggested_fix}")
         print()
 
-        diagnoses.append({
-            "anomaly": anomaly,
-            "diagnosis": diagnosis.model_dump()
-        })
+        diagnoses.append({"anomaly": anomaly, "diagnosis": diagnosis.model_dump()})
 
     with open("data/diagnoses.json", "w") as f:
         json.dump(diagnoses, f, indent=2)
 
     print(f"Saved {len(diagnoses)} diagnoses to data/diagnoses.json")
+
 
 def diagnose_anomaly_stream(anomaly: dict):
     """
@@ -176,7 +222,6 @@ def diagnose_anomaly_stream(anomaly: dict):
     progress updates as it goes — for SSE streaming.
     """
     trigger = anomaly["trigger_message"]
-    raw_log = anomaly["trigger_raw"]
 
     yield {"step": "retrieving", "message": "Searching incident knowledge base..."}
 
@@ -185,7 +230,7 @@ def diagnose_anomaly_stream(anomaly: dict):
     for c in candidates:
         yield {
             "step": "candidate_found",
-            "message": f"Candidate: {c['id']} — {c['title']} (distance: {c['distance']:.3f})"
+            "message": f"Candidate: {c['id']} — {c['title']} (distance: {c['distance']:.3f})",
         }
 
     best_distance = candidates[0]["distance"] if candidates else 999
@@ -194,7 +239,7 @@ def diagnose_anomaly_stream(anomaly: dict):
     if best_distance > DISTANCE_THRESHOLD:
         yield {
             "step": "no_match",
-            "message": f"No confident match found (best distance {best_distance:.3f} exceeds threshold). Escalating to human."
+            "message": f"No confident match found (best distance {best_distance:.3f} exceeds threshold). Escalating to human.",
         }
         yield {
             "step": "final",
@@ -204,7 +249,7 @@ def diagnose_anomaly_stream(anomaly: dict):
                 confidence="no_match",
                 likely_root_cause="No similar historical incident found in knowledge base",
                 suggested_fix="Escalate to human on-call engineer",
-                reasoning=f"Best candidate distance ({best_distance:.3f}) exceeds threshold ({DISTANCE_THRESHOLD})."
+                reasoning=f"Best candidate distance ({best_distance:.3f}) exceeds threshold ({DISTANCE_THRESHOLD}).",
             ).model_dump()
         }
         return
