@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "incident-copilot": {
+      "command": "python",
+      "args": ["mcp_server.py"]
+    }
+  }
+}

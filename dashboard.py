@@ -11,8 +11,8 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🚨 Incident Copilot")
-st.caption("AI-powered production incident diagnosis using RAG over historical incidents")
+st.title("Incident Copilot")
+st.caption("AI incident commander using Kafka, real OpenStack logs, MCP tools, and human-safe recommendations")
 
 # ── Sidebar: Knowledge base overview ───────────────────────────
 with st.sidebar:
@@ -35,7 +35,7 @@ with st.sidebar:
         st.warning("Could not load incidents")
 
 # ── Main: Anomaly input ────────────────────────────────────────
-st.subheader("Diagnose an Anomaly")
+st.subheader("Investigate an Anomaly")
 
 example_anomalies = {
     "HDFS DataNode exception (real)": "10.251.30.85:50010:Got exception while serving blk_-2918118818249673980",
@@ -55,7 +55,66 @@ trigger_message = st.text_area(
 
 col1, col2 = st.columns([1, 4])
 with col1:
-    diagnose_clicked = st.button("🔍 Diagnose", type="primary", use_container_width=True)
+    diagnose_clicked = st.button("Investigate", type="primary", use_container_width=True)
+
+
+def show_diagnosis(final_diagnosis):
+    st.markdown("### Diagnosis Result")
+
+    confidence = final_diagnosis["confidence"]
+    conf_color = {
+        "high": "Green",
+        "medium": "Yellow",
+        "low": "Orange",
+        "no_match": "Needs review",
+    }.get(confidence, "Unknown")
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.metric("Matched Incident", final_diagnosis["matched_incident_id"] or "None")
+    with col_b:
+        st.metric("Confidence", f"{conf_color}: {confidence}")
+
+    if final_diagnosis["matched_incident_title"]:
+        st.info(f"**{final_diagnosis['matched_incident_title']}**")
+
+    st.markdown(f"**Root cause:** {final_diagnosis['likely_root_cause']}")
+    st.markdown(f"**Suggested fix:** {final_diagnosis['suggested_fix']}")
+
+    with st.expander("Full reasoning"):
+        st.write(final_diagnosis["reasoning"])
+
+    sources = final_diagnosis.get("sources") or []
+    if sources:
+        st.markdown("**Evidence sources:**")
+        for source in sources:
+            st.caption(
+                f"{source['incident_id']} - {source['title']} ({source['source']})"
+            )
+
+    if confidence == "no_match":
+        st.warning("No confident match. Escalate to a human on-call engineer.")
+
+
+def show_agent_investigation(investigation):
+    st.markdown("### AI Agent Investigation")
+
+    st.markdown("**Agent steps**")
+    for step in investigation["agent_steps"]:
+        st.write(f"- {step}")
+
+    st.markdown("**MCP tool evidence**")
+    for item in investigation["evidence"]:
+        with st.expander(f"{item['tool']}: {item['summary']}"):
+            st.json(item["result"])
+
+    ticket = investigation["ticket"]
+    st.markdown("### Human Approval Ticket")
+    col_a, col_b = st.columns(2)
+    col_a.metric("Approval required", "Yes" if ticket["requires_human_approval"] else "No")
+    col_b.metric("Ticket confidence", ticket["confidence"])
+    st.markdown(f"**Title:** {ticket['title']}")
+    st.markdown(f"**Suggested action:** {ticket['suggested_fix']}")
 
 # ── Live streaming diagnosis ────────────────────────────────────
 if diagnose_clicked and trigger_message.strip():
@@ -95,39 +154,15 @@ if diagnose_clicked and trigger_message.strip():
             # ── Show final structured result ────────────────────
             if final_diagnosis:
                 with result_container.container():
-                    st.markdown("### Diagnosis Result")
+                    show_diagnosis(final_diagnosis)
 
-                    confidence = final_diagnosis["confidence"]
-                    conf_color = {
-                        "high": "🟢", "medium": "🟡",
-                        "low": "🟠", "no_match": "🔴"
-                    }.get(confidence, "⚪")
-
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        st.metric("Matched Incident", final_diagnosis["matched_incident_id"] or "None")
-                    with col_b:
-                        st.metric("Confidence", f"{conf_color} {confidence}")
-
-                    if final_diagnosis["matched_incident_title"]:
-                        st.info(f"**{final_diagnosis['matched_incident_title']}**")
-
-                    st.markdown(f"**Root cause:** {final_diagnosis['likely_root_cause']}")
-                    st.markdown(f"**Suggested fix:** {final_diagnosis['suggested_fix']}")
-
-                    with st.expander("Full reasoning"):
-                        st.write(final_diagnosis["reasoning"])
-
-                    sources = final_diagnosis.get("sources") or []
-                    if sources:
-                        st.markdown("**Evidence sources:**")
-                        for source in sources:
-                            st.caption(
-                                f"{source['incident_id']} - {source['title']} ({source['source']})"
-                            )
-
-                    if confidence == "no_match":
-                        st.warning("⚠️ No confident match — escalate to human on-call engineer.")
+                    agent_response = requests.post(
+                        f"{API_URL}/agent/investigate",
+                        json={"trigger_message": trigger_message, "trigger_raw": trigger_message},
+                        timeout=60,
+                    )
+                    agent_response.raise_for_status()
+                    show_agent_investigation(agent_response.json())
 
         except Exception as e:
             st.error(f"Error connecting to API: {e}")

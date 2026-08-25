@@ -5,6 +5,7 @@ from typing import Optional
 import chromadb
 from dotenv import load_dotenv
 from groq import Groq
+from openai import OpenAI
 from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
 
@@ -13,27 +14,56 @@ from config import (
     DISTANCE_THRESHOLD,
     GROQ_MODEL,
     LLM_MAX_RETRIES,
+    LLM_PROVIDER,
     LLM_TIMEOUT_SECONDS,
+    OPENROUTER_BASE_URL,
+    OPENROUTER_MODEL,
     RETRIEVAL_TOP_K,
 )
 
 load_dotenv()
 
 # Heavy resources are initialized lazily so API startup and unit tests stay fast.
-groq_client = None
+llm_client = None
 collection = None
 embedding_model = None
 
 
-def get_groq_client():
-    global groq_client
-    if groq_client is None:
-        groq_client = Groq(
+def get_llm_client():
+    global llm_client
+    if llm_client is not None:
+        return llm_client
+
+    if LLM_PROVIDER == "openrouter":
+        llm_client = OpenAI(
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            base_url=OPENROUTER_BASE_URL,
+            timeout=LLM_TIMEOUT_SECONDS,
+            max_retries=LLM_MAX_RETRIES,
+            default_headers={
+                "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "http://localhost:8501"),
+                "X-Title": os.getenv("OPENROUTER_APP_NAME", "Incident Copilot"),
+            },
+        )
+        return llm_client
+
+    if LLM_PROVIDER == "groq":
+        llm_client = Groq(
             api_key=os.getenv("GROQ_API_KEY"),
             timeout=LLM_TIMEOUT_SECONDS,
             max_retries=LLM_MAX_RETRIES,
         )
-    return groq_client
+        return llm_client
+
+    raise ValueError("Unsupported LLM_PROVIDER. Use 'openrouter' or 'groq'.")
+
+
+def get_llm_model():
+    if LLM_PROVIDER == "openrouter":
+        return OPENROUTER_MODEL
+    if LLM_PROVIDER == "groq":
+        return GROQ_MODEL
+    raise ValueError("Unsupported LLM_PROVIDER. Use 'openrouter' or 'groq'.")
 
 
 def get_retrieval_resources():
@@ -149,8 +179,8 @@ Respond ONLY with valid JSON in this exact format:
   "sources": [{{"incident_id": "INC-XXX", "title": "source incident title", "source": "source path"}}]
 }}"""
 
-    response = get_groq_client().chat.completions.create(
-        model=GROQ_MODEL,
+    response = get_llm_client().chat.completions.create(
+        model=get_llm_model(),
         messages=[{"role": "user", "content": prompt}],
         temperature=0,
     )
@@ -256,7 +286,25 @@ def diagnose_anomaly_stream(anomaly: dict):
 
     yield {"step": "generating", "message": "Generating diagnosis with LLM..."}
 
-    diagnosis = diagnose_anomaly(anomaly)
+    try:
+        diagnosis = diagnose_anomaly(anomaly)
+    except Exception as e:
+        yield {
+            "step": "llm_error",
+            "message": f"LLM diagnosis failed: {str(e)}",
+        }
+        yield {
+            "step": "final",
+            "diagnosis": IncidentDiagnosis(
+                matched_incident_id=None,
+                matched_incident_title=None,
+                confidence="no_match",
+                likely_root_cause="LLM diagnosis failed",
+                suggested_fix="Check the configured LLM provider, API key, and model name, then retry.",
+                reasoning=f"LLM call failed during streaming diagnosis: {str(e)}",
+            ).model_dump(),
+        }
+        return
 
     yield {"step": "root_cause", "message": f"Root cause: {diagnosis.likely_root_cause}"}
     yield {"step": "fix", "message": f"Suggested fix: {diagnosis.suggested_fix}"}

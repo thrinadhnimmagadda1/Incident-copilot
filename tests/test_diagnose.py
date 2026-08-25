@@ -50,7 +50,7 @@ def test_malformed_llm_output_fails_safe(monkeypatch):
     client = SimpleNamespace(
         chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **_kwargs: response))
     )
-    monkeypatch.setattr(diagnose, "get_groq_client", lambda: client)
+    monkeypatch.setattr(diagnose, "get_llm_client", lambda: client)
     result = diagnose.diagnose_anomaly({"trigger_message": "known", "trigger_raw": "known"})
     assert result.confidence == "no_match"
     assert result.likely_root_cause == "Failed to parse diagnosis"

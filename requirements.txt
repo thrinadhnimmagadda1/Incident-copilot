@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 groq
+openai
 chromadb
 sentence-transformers
 python-dotenv
@@ -13,6 +14,7 @@ datasets
 langchain-groq
 langchain-community
 prometheus-client
+mcp
 pytest
 httpx
 ruff

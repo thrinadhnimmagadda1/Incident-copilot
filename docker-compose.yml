@@ -79,6 +79,8 @@ services:
     command: sh -c "python fetch_data.py && python producer.py"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOG_SOURCE: OpenStack
+      LOG_FILE_PATH: data/OpenStack_2k.log
     volumes:
       - ./data:/app/data
     depends_on:

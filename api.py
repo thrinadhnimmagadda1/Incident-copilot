@@ -11,6 +11,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_
 from pydantic import BaseModel, Field
 
 from diagnose import diagnose_anomaly, diagnose_anomaly_stream, retrieve_similar_incidents
+from incident_agent import investigate_incident
 
 load_dotenv()
 
@@ -41,6 +42,16 @@ class DiagnosisResponse(BaseModel):
     suggested_fix: str
     reasoning: str
     sources: list[dict] = Field(default_factory=list)
+
+
+class AgentInvestigationResponse(BaseModel):
+    status: str
+    agent_steps: list[str] = Field(default_factory=list)
+    evidence: list[dict] = Field(default_factory=list)
+    diagnosis: dict
+    ticket: dict
+    human_approval_required: bool = True
+
 
 class IncidentSummary(BaseModel):
     id: str
@@ -105,6 +116,33 @@ def diagnose(request: AnomalyRequest):
         raise HTTPException(status_code=500, detail=f"Diagnosis failed: {str(e)}")
 
     return DiagnosisResponse(**diagnosis.model_dump())
+
+
+@app.post("/agent/investigate", response_model=AgentInvestigationResponse)
+def investigate(request: AnomalyRequest):
+    """Run the AI incident agent and return MCP tool evidence plus a ticket draft."""
+    if not request.trigger_message.strip():
+        raise HTTPException(status_code=400, detail="trigger_message cannot be empty")
+
+    anomaly = {
+        "trigger_message": request.trigger_message,
+        "trigger_raw": request.trigger_raw or request.trigger_message,
+        "signal_type": "manual_investigation",
+        "severity": "medium",
+        "component": "manual.input",
+        "reason": "manual dashboard investigation",
+        "trigger_log": {
+            "component": "manual.input",
+            "message": request.trigger_message,
+        },
+    }
+
+    try:
+        investigation = investigate_incident(anomaly)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Agent investigation failed: {str(e)}")
+
+    return AgentInvestigationResponse(**investigation.model_dump())
 
 
 @app.get("/incidents", response_model=list[IncidentSummary])

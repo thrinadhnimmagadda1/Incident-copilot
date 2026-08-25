@@ -1,6 +1,6 @@
 # Incident Copilot
 
-Incident Copilot is an AI-assisted production operations system that detects bursts of suspicious log activity, retrieves related historical incidents, and produces a grounded root-cause diagnosis with a recommended remediation. When evidence is weak, it refuses to force a match and escalates the incident to a human engineer.
+Incident Copilot is an AI-agent-powered production operations system that detects suspicious log activity, investigates with MCP tools, retrieves related historical incidents, and produces a grounded root-cause diagnosis with a recommended remediation. When evidence is weak, it refuses to force a match and escalates the incident to a human engineer.
 
 ## Why this project exists
 
@@ -10,17 +10,21 @@ On-call engineers often search old tickets, postmortems, and runbooks while an o
 
 ```mermaid
 flowchart LR
-    A[Infrastructure logs] --> B[Kafka]
-    B --> C[Sliding-window anomaly detector]
-    C --> D[Sentence Transformer embeddings]
-    D --> E[(ChromaDB incident history)]
-    E --> F{Distance guardrail}
-    F -->|Supported match| G[Groq / Llama diagnosis]
-    F -->|Weak evidence| H[Human escalation]
-    G --> I[Structured diagnosis + source citation]
-    I --> J[FastAPI + SSE]
-    J --> K[Streamlit dashboard]
-    J --> L[Prometheus metrics]
+    A[LogHub OpenStack logs] --> B[Kafka]
+    B --> C[Operational signal detector]
+    C --> D[AI incident agent]
+    D --> E[MCP tools]
+    E --> F[Logs, metrics, deployments, runbooks, ticket draft]
+    D --> G[Sentence Transformer embeddings]
+    G --> H[(ChromaDB incident history)]
+    H --> I{Distance guardrail}
+    I -->|Supported match| J[Groq/OpenRouter LLM diagnosis]
+    I -->|Weak evidence| K[Human-safe no-match guidance]
+    J --> L[Structured diagnosis + source citation]
+    K --> L
+    L --> M[FastAPI + SSE]
+    M --> N[Streamlit dashboard]
+    M --> O[Prometheus metrics]
 ```
 
 ## Dashboard preview
@@ -33,6 +37,9 @@ flowchart LR
 - **Grounded results:** each accepted diagnosis returns the incident ID, title, and runbook/postmortem source used as evidence.
 - **Live feedback:** Server-Sent Events expose retrieval, guardrail, and generation progress to the dashboard.
 - **Duplicate suppression:** a cooldown prevents a sustained burst from opening the same anomaly repeatedly.
+- **Multi-signal detection:** OpenStack logs are inspected for service-level error bursts, 5xx responses, latency spikes, and risky phrases even when no runbook match exists.
+- **Agentic investigation:** detected incidents are routed through an AI incident agent that calls MCP tools for logs, metrics, deployments, runbooks, and ticket drafting.
+- **Human approval:** the agent drafts recommendations and tickets, but rollback or production-changing actions require human review.
 - **Testable boundaries:** Kafka parsing, rate detection, retrieval mapping, refusal behavior, malformed model output, imports, and API validation can be tested without paid LLM calls.
 - **Operational visibility:** request IDs, structured service logs, Prometheus request counts, and latency histograms support production debugging.
 
@@ -40,16 +47,60 @@ flowchart LR
 
 | Layer | Technology |
 |---|---|
-| Streaming | Apache Kafka |
-| Detection | Python sliding time window + cooldown |
+| Streaming | Apache Kafka with LogHub OpenStack log replay |
+| Detection | Python operational signal detector for error bursts, latency spikes, and unknown risky patterns |
+| Agent tools | MCP server exposing logs, metrics, deployments, runbooks, and ticket-drafting tools |
 | Retrieval | ChromaDB + `all-MiniLM-L6-v2` embeddings |
-| Generation | Groq-hosted Llama with structured Pydantic output |
+| Generation | Configurable Groq or OpenRouter LLM with structured Pydantic output |
 | API | FastAPI, Server-Sent Events |
 | Interface | Streamlit |
 | Evaluation | RAGAS, labeled retrieval benchmark, keyword baseline |
 | Operations | Docker Compose, Prometheus metrics, GitHub Actions |
 
 ## Example result
+
+## Real-time LogHub replay
+
+The Kafka producer can replay public LogHub datasets as if they were live production logs. By default, Docker Compose now uses `OpenStack_2k.log`, which gives the demo a cloud-infrastructure incident story instead of only HDFS examples.
+
+```bash
+LOG_SOURCE=OpenStack LOG_FILE_PATH=data/OpenStack_2k.log python producer.py
+```
+
+## LLM provider
+
+Groq is the default provider:
+
+```env
+LLM_PROVIDER=groq
+GROQ_API_KEY=replace_with_your_key
+GROQ_MODEL=openai/gpt-oss-20b
+```
+
+OpenRouter is also supported by setting `LLM_PROVIDER=openrouter` and adding `OPENROUTER_API_KEY`.
+
+## MCP server
+
+The project includes an MCP server that exposes incident-investigation tools to an agent client:
+
+```bash
+python mcp_server.py
+```
+
+The local MCP config is in `mcp.json` and registers the `incident-copilot` server.
+
+Available MCP tools:
+
+- `search_recent_logs`
+- `get_service_health`
+- `get_recent_deployment_evidence`
+- `search_incident_runbooks`
+
+Interview version:
+
+```text
+I used real OpenStack system logs from LogHub and replayed them through Kafka to simulate live production incidents for the AI incident agent to investigate.
+```
 
 Input:
 
@@ -97,7 +148,7 @@ Latest local offline retrieval benchmark:
 | Keyword baseline accuracy | 1.00 |
 | Warm mean / P95 retrieval latency | 20.0 ms / 127.0 ms |
 
-These numbers are useful portfolio evidence, but they should be described as a curated offline benchmark. The keyword baseline also scores 1.00, which shows the current benchmark is still too easy to claim production-grade semantic retrieval. The older saved full-LLM result came from the original **five-case** experiment: 100% match/refusal accuracy, 0.528 faithfulness, and 0.304 answer relevancy. Keep that result qualified until the full 91-case LLM evaluation is rerun with a valid `GROQ_API_KEY`.
+These numbers are useful portfolio evidence, but they should be described as a curated offline benchmark. The keyword baseline also scores 1.00, which shows the current benchmark is still too easy to claim production-grade semantic retrieval. The older saved full-LLM result came from the original **five-case** experiment: 100% match/refusal accuracy, 0.528 faithfulness, and 0.304 answer relevancy. Keep that result qualified until the full 91-case LLM evaluation is rerun with a valid `OPENROUTER_API_KEY` or `GROQ_API_KEY`.
 
 ## Reliability and safety controls
 
