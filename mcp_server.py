@@ -1,6 +1,6 @@
 """MCP server exposing incident-investigation tools."""
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.fastmcp import FastMCP
 
 from mcp_tools import (
     get_recent_deployments,
@@ -9,7 +9,7 @@ from mcp_tools import (
     search_runbooks,
 )
 
-mcp = MCPServer("incident-copilot")
+mcp = FastMCP("incident-copilot")
 
 
 @mcp.tool()

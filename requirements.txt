@@ -14,7 +14,7 @@ datasets
 langchain-groq
 langchain-community
 prometheus-client
-mcp
+mcp>=1.20,<2
 pytest
 httpx
 ruff

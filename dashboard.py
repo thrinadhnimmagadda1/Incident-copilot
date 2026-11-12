@@ -1,5 +1,3 @@
-import json
-
 import requests
 import streamlit as st
 
@@ -124,45 +122,24 @@ if diagnose_clicked and trigger_message.strip():
     with progress_container:
         st.markdown("### Live Diagnosis Feed")
         log_box = st.empty()
-        logs = []
 
         try:
             response = requests.post(
-                f"{API_URL}/diagnose/stream",
+                f"{API_URL}/agent/investigate",
                 json={"trigger_message": trigger_message, "trigger_raw": trigger_message},
-                stream=True,
-                timeout=60,
+                timeout=150,
             )
-
-            final_diagnosis = None
-
-            for line in response.iter_lines():
-                if line:
-                    line_text = line.decode("utf-8")
-                    if line_text.startswith("data: "):
-                        payload = line_text[6:]
-                        if payload == "[DONE]":
-                            break
-                        event = json.loads(payload)
-
-                        if event.get("step") == "final":
-                            final_diagnosis = event["diagnosis"]
-                        else:
-                            logs.append(f"**{event['step']}**: {event['message']}")
-                            log_box.markdown("\n\n".join(logs))
+            response.raise_for_status()
+            investigation = response.json()
+            final_diagnosis = investigation["diagnosis"]
+            log_box.write(investigation["status"].replace("_", " ").title())
 
             # ── Show final structured result ────────────────────
             if final_diagnosis:
                 with result_container.container():
                     show_diagnosis(final_diagnosis)
 
-                    agent_response = requests.post(
-                        f"{API_URL}/agent/investigate",
-                        json={"trigger_message": trigger_message, "trigger_raw": trigger_message},
-                        timeout=60,
-                    )
-                    agent_response.raise_for_status()
-                    show_agent_investigation(agent_response.json())
+                    show_agent_investigation(investigation)
 
         except Exception as e:
             st.error(f"Error connecting to API: {e}")

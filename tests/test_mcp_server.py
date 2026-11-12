@@ -10,7 +10,8 @@ from mcp_server import (  # noqa: E402
 )
 
 
-def test_mcp_tool_functions_return_expected_evidence():
+def test_mcp_tool_functions_return_expected_evidence(monkeypatch):
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
     anomaly = {
         "component": "nova.api",
         "trigger_raw": "nova api status: 500 time: 1.5",
@@ -24,5 +25,5 @@ def test_mcp_tool_functions_return_expected_evidence():
 
     assert search_recent_logs(anomaly)["tool"] == "logs.search_recent"
     assert get_service_health(anomaly)["result"]["status_code"] == 500
-    assert get_recent_deployment_evidence(anomaly)["result"][0]["service"] == "nova"
+    assert get_recent_deployment_evidence(anomaly)["available"] is False
     assert search_incident_runbooks(anomaly, [])["result"] == []

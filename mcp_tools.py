@@ -5,8 +5,14 @@ deployment: log search, metrics lookup, deployment lookup, runbook search, and
 ticket drafting. They are deterministic so tests can validate agent behavior.
 """
 
-from collections import Counter
+import os
+import re
+from collections import Counter, deque
 from datetime import datetime, timezone
+
+import requests
+
+from config import LOG_FILE_PATH, LOG_SOURCE
 
 
 def get_recent_logs(anomaly, limit=5):
@@ -15,6 +21,18 @@ def get_recent_logs(anomaly, limit=5):
     message = anomaly.get("trigger_message") or trigger_log.get("message") or ""
 
     logs = []
+    component = anomaly.get("component")
+    if component and component != "manual.input":
+        from producer import parse_log_line
+
+        try:
+            with open(LOG_FILE_PATH) as handle:
+                for line in deque(handle, maxlen=1000):
+                    parsed = parse_log_line(line, LOG_SOURCE)
+                    if parsed and parsed.get("component") == component:
+                        logs.append(parsed)
+        except FileNotFoundError:
+            pass
     if raw_log:
         logs.append(raw_log)
     elif message:
@@ -22,8 +40,8 @@ def get_recent_logs(anomaly, limit=5):
 
     return {
         "tool": "logs.search_recent",
-        "result": logs[:limit],
-        "summary": "Found trigger log from the live Kafka event.",
+        "result": logs[-max(1, min(limit, 20)):],
+        "summary": "Observed log records; historical replay timestamps are not live production time.",
     }
 
 
@@ -43,6 +61,7 @@ def get_service_metrics(anomaly):
 
     return {
         "tool": "metrics.get_service_health",
+        "source": "trigger event; no independent metrics backend connected",
         "result": {
             "component": anomaly.get("component") or trigger_log.get("component", "unknown"),
             "status_code": status_code,
@@ -54,24 +73,24 @@ def get_service_metrics(anomaly):
 
 
 def get_recent_deployments(anomaly):
-    component = anomaly.get("component") or (anomaly.get("trigger_log") or {}).get("component", "")
-    service = component.split(".")[0] if component else "unknown-service"
-
-    return {
-        "tool": "deployments.get_recent",
-        "result": [
-            {
-                "service": service,
-                "version": "current-demo-version",
-                "deployed_at": "unknown",
-                "source": "simulated deployment evidence",
-            }
-        ],
-        "summary": (
-            "No real deployment feed is connected yet; agent should ask a human "
-            "to verify recent changes before rollback."
-        ),
-    }
+    repository = os.getenv("GITHUB_REPOSITORY", "")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+        return {"tool": "deployments.get_recent", "result": [], "available": False,
+                "summary": "GITHUB_REPOSITORY not configured; deployment history unknown."}
+    headers = {"Accept": "application/vnd.github+json"}
+    if os.getenv("GITHUB_TOKEN"):
+        headers["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
+    response = requests.get(
+        f"https://api.github.com/repos/{repository}/deployments",
+        params={"per_page": 5}, headers=headers, timeout=8,
+    )
+    response.raise_for_status()
+    return {"tool": "deployments.get_recent", "available": True,
+            "source": f"GitHub deployments: {repository}",
+            "result": [{"sha": d["sha"], "environment": d["environment"],
+                        "created_at": d["created_at"], "url": d["url"]}
+                       for d in response.json()],
+            "summary": "Repository history; service correlation must be verified."}
 
 
 def search_runbooks(anomaly, candidates):

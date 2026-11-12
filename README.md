@@ -1,5 +1,37 @@
 # Incident Copilot
 
+## Evidence-driven investigation agent
+
+The investigation endpoint now connects to the bundled MCP server over stdio,
+initializes a session, discovers tools, and calls them through the MCP protocol.
+An LLM selects follow-up checks after the initial log lookup. The backend permits
+only four read-only tools and rejects repeated or unknown tool selections.
+
+- Logs: searches the latest 1,000 records in the configured log file by component,
+  returning at most 20 records. Historical replay logs are not live production data.
+- Health: reports status and latency from the triggering event, not an independent
+  Prometheus query.
+- Deployments: reads GitHub deployments for `GITHUB_REPOSITORY`, using optional
+  `GITHUB_TOKEN`. Missing configuration returns unavailable evidence, never a
+  fabricated deployment. Repository history alone does not establish causality.
+- Runbooks: exposes retrieved historical candidates as supporting context.
+
+Collected evidence reaches the diagnosis prompt. Returned incident IDs must exist
+in the retrieved candidates, and source citations are assigned by the backend.
+The dashboard displays that same investigation diagnosis, avoiding a second,
+independent model diagnosis for each click.
+
+Investigations have a four-tool budget and a 90-second orchestration deadline,
+plus MCP and provider timeouts. In-flight synchronous provider requests may finish
+after the orchestration deadline; they have no production write capabilities.
+Tool failures, invalid planner responses, and weak matches produce
+`needs_human_investigation`; other results await human review. Tickets remain
+drafts. No tool merges code, rolls back services, or executes shell commands.
+
+Tests include a real MCP subprocess handshake and tool call, with mocked model
+decisions and GitHub responses for repeatable offline checks. Real provider
+quality and live deployment connectivity require separately configured credentials.
+
 Incident Copilot is an AI-agent-powered production operations system that detects suspicious log activity, investigates with MCP tools, retrieves related historical incidents, and produces a grounded root-cause diagnosis with a recommended remediation. When evidence is weak, it refuses to force a match and escalates the incident to a human engineer.
 
 ## Why this project exists
